@@ -1,8 +1,8 @@
 # SparkyFitness — PostgreSQL (private, always-on)
-# Mirrors the `sparkyfitness-db` service from docker-compose.prod.yml.
+# Mirrors the `sparkyfitness-db-af` service from docker-compose.prod.yml.
 # No [[services]] block => not exposed to the internet; reachable from other
-# apps in this org over 6PN at `sparkyfitness-db.internal:5432`.
-app = 'sparkyfitness-db'
+# apps in this org over 6PN at `sparkyfitness-db-af.internal:5432`.
+app = 'sparkyfitness-db-af'
 primary_region = 'lax'
 
 [build]

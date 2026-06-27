@@ -1,8 +1,8 @@
 # SparkyFitness — nginx frontend (PUBLIC entry point)
-# Mirrors the `sparkyfitness-frontend` service. Serves the React build and
+# Mirrors the `sparkyfitness-frontend-af` service. Serves the React build and
 # reverse-proxies /api/, /uploads/, /mcp, /health-data to the backend.
 # This is the only app with a public IP.
-app = 'sparkyfitness-frontend'
+app = 'sparkyfitness-frontend-af'
 primary_region = 'lax'
 
 [build]
@@ -10,8 +10,8 @@ primary_region = 'lax'
 
 [env]
   # Point nginx's upstream at the backend's flycast address (overrides the
-  # image default of `sparkyfitness-server`).
-  SPARKY_FITNESS_SERVER_HOST = 'sparkyfitness-server.flycast'
+  # image default of `sparkyfitness-server-af`).
+  SPARKY_FITNESS_SERVER_HOST = 'sparkyfitness-server-af.flycast'
   SPARKY_FITNESS_SERVER_PORT = '3010'
 
   # Image runs nginx as root -> default listen port 80 and file-based logs.
@@ -21,7 +21,7 @@ primary_region = 'lax'
   NGINX_ERROR_LOG = '/dev/stderr'
 
   # Used for CORS / absolute URLs — must match the deployed hostname.
-  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend.fly.dev'
+  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend-af.fly.dev'
 
 [http_service]
   internal_port = 80

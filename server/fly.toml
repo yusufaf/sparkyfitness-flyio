@@ -1,12 +1,12 @@
 # SparkyFitness — Node backend (private via flycast)
-# Mirrors the `sparkyfitness-server` service. Listens on 3010.
+# Mirrors the `sparkyfitness-server-af` service. Listens on 3010.
 # Exposed only on the private network: the [[services]] block has NO ports, so
 # there is no public listener. The frontend reaches it at
-# `sparkyfitness-server.flycast:3010` (flycast = Fly proxy on a private address;
+# `sparkyfitness-server-af.flycast:3010` (flycast = Fly proxy on a private address;
 # survives whether the Node process binds IPv4 or IPv6, and lets the machine
 # auto-stop/auto-start to save money). Allocate the flycast address once with:
-#   fly ips allocate-v6 --private --app sparkyfitness-server
-app = 'sparkyfitness-server'
+#   fly ips allocate-v6 --private --app sparkyfitness-server-af
+app = 'sparkyfitness-server-af'
 primary_region = 'lax'
 
 [build]
@@ -18,17 +18,20 @@ primary_region = 'lax'
   SPARKY_FITNESS_LOG_LEVEL = 'ERROR'
 
   # --- DB connection (superuser; used for migrations + creating the app user) ---
-  SPARKY_FITNESS_DB_HOST = 'sparkyfitness-db.internal'
+  SPARKY_FITNESS_DB_HOST = 'sparkyfitness-db-af.internal'
   SPARKY_FITNESS_DB_PORT = '5432'
   SPARKY_FITNESS_DB_NAME = 'sparkyfitness_db'
   SPARKY_FITNESS_DB_USER = 'sparky'
   SPARKY_FITNESS_APP_DB_USER = 'sparkyapp'
 
   # CORS / Better Auth trusted origin — must match the public frontend URL.
-  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend.fly.dev'
+  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend-af.fly.dev'
 
   # Lock down registration by default; flip to 'false' just long enough to make
   # your account, then set back to 'true' and redeploy (see README).
+  # Master signup blockade (server-enforced in auth.ts user.create.before hook).
+  # This — not the Admin > Login Management UI — is what actually blocks new
+  # registrations. 'true' = locked; flip to 'false' + redeploy to re-open briefly.
   SPARKY_FITNESS_DISABLE_SIGNUP = 'true'
 
   # Secrets set via `fly secrets` (NOT here):
@@ -37,13 +40,20 @@ primary_region = 'lax'
   #   SPARKY_FITNESS_API_ENCRYPTION_KEY (openssl rand -hex 32)
   #   BETTER_AUTH_SECRET                (strong + PERMANENT — never rotate)
 
-# Private service: flycast routes to internal_port 3010. No `ports` => no public IP.
+# Private service: flycast routes port 3010 -> internal_port 3010. Only a private
+# (flycast) IP is allocated for this app, so defining the port does NOT expose it
+# publicly — there is no public IP to listen on. The port is required for the Fly
+# proxy to route flycast traffic at all.
 [[services]]
   protocol = 'tcp'
   internal_port = 3010
   auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
+
+  # Raw TCP passthrough (no handlers): nginx speaks plain HTTP to flycast:3010.
+  [[services.ports]]
+    port = 3010
 
   [[services.tcp_checks]]
     interval = '15s'
