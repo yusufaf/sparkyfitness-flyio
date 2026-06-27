@@ -8,12 +8,39 @@ connected over Fly's private network:
 
 | Fly app | image | exposure |
 |---|---|---|
-| `sparkyfitness-db-af` | `postgres:18.3-alpine` | private (`.internal`), always-on |
-| `sparkyfitness-server-af` | `codewithcj/sparkyfitness_server:latest` | private (`.flycast`), auto-stop |
-| `sparkyfitness-frontend-af` | `codewithcj/sparkyfitness:latest` | **public** HTTPS, auto-stop |
+| `sparkyfitness-db` | `postgres:18.3-alpine` | private (`.internal`), always-on |
+| `sparkyfitness-server` | `codewithcj/sparkyfitness_server:latest` | private (`.flycast`), auto-stop |
+| `sparkyfitness-frontend` | `codewithcj/sparkyfitness:latest` | **public** HTTPS, auto-stop |
 
 Traffic: browser → **frontend** (nginx, public) → reverse-proxies `/api` etc. →
 **server** (`.flycast:3010`) → **db** (`.internal:5432`). Only the frontend has a public IP.
+
+## ⚠️ Choose your own app names first
+
+**Fly.io app names are globally unique** (shared across all Fly users), so the example
+names below — `sparkyfitness-db`, `sparkyfitness-server`, `sparkyfitness-frontend` — are
+almost certainly already taken. Pick your own (e.g. add a personal suffix:
+`sparkyfitness-db-xyz`).
+
+If you change a name, update it in **every** place it appears — the apps find each other
+by name over Fly's private network:
+
+| What | Where |
+|---|---|
+| db app name | `db/fly.toml` → `app` |
+| server app name | `server/fly.toml` → `app` |
+| frontend app name | `frontend/fly.toml` → `app` |
+| db hostname (server→db) | `server/fly.toml` → `SPARKY_FITNESS_DB_HOST` (`<db-app>.internal`) |
+| frontend URL (CORS) | `server/fly.toml` → `SPARKY_FITNESS_FRONTEND_URL` (`https://<frontend-app>.fly.dev`) |
+| server hostname (nginx→server) | `frontend/fly.toml` → `SPARKY_FITNESS_SERVER_HOST` (`<server-app>.flycast`) |
+| frontend URL | `frontend/fly.toml` → `SPARKY_FITNESS_FRONTEND_URL` (`https://<frontend-app>.fly.dev`) |
+
+Rename all at once (run in repo root, swap in your names):
+```bash
+sed -i 's/sparkyfitness-db/YOUR-db/g; s/sparkyfitness-server/YOUR-server/g; s/sparkyfitness-frontend/YOUR-frontend/g' \
+  db/fly.toml server/fly.toml frontend/fly.toml README.md
+```
+Then use the same names in the `fly` commands below.
 
 ## Prerequisites
 - [`fly` CLI](https://fly.io/docs/flyctl/install/) installed and `fly auth login` done
@@ -36,35 +63,35 @@ AUTHSECRET=$(openssl rand -hex 32)
 
 ### 1. Database
 ```bash
-fly apps create sparkyfitness-db-af
-fly volumes create sparky_pgdata --app sparkyfitness-db-af --region lax --size 1
-fly secrets set --app sparkyfitness-db-af \
+fly apps create sparkyfitness-db
+fly volumes create sparky_pgdata --app sparkyfitness-db --region lax --size 1
+fly secrets set --app sparkyfitness-db \
   POSTGRES_DB=sparkyfitness_db POSTGRES_USER=sparky POSTGRES_PASSWORD="$DBPW"
 fly deploy --config db/fly.toml
 ```
 
 ### 2. Backend server (private via flycast)
 ```bash
-fly apps create sparkyfitness-server-af
+fly apps create sparkyfitness-server
 # Allocate the private flycast address the frontend will dial:
-fly ips allocate-v6 --private --app sparkyfitness-server-af
-fly volumes create sparky_uploads --app sparkyfitness-server-af --region lax --size 1
-fly secrets set --app sparkyfitness-server-af \
+fly ips allocate-v6 --private --app sparkyfitness-server
+fly volumes create sparky_uploads --app sparkyfitness-server --region lax --size 1
+fly secrets set --app sparkyfitness-server \
   SPARKY_FITNESS_DB_PASSWORD="$DBPW" \
   SPARKY_FITNESS_APP_DB_PASSWORD="$APPPW" \
   SPARKY_FITNESS_API_ENCRYPTION_KEY="$APIKEY" \
   BETTER_AUTH_SECRET="$AUTHSECRET"
 fly deploy --config server/fly.toml
-fly logs --app sparkyfitness-server-af   # watch: DB migrations run, "listening on 3010"
+fly logs --app sparkyfitness-server   # watch: DB migrations run, "listening on 3010"
 ```
 
 ### 3. Frontend (public)
 ```bash
-fly apps create sparkyfitness-frontend-af
+fly apps create sparkyfitness-frontend
 fly deploy --config frontend/fly.toml
 ```
 
-Open `https://sparkyfitness-frontend-af.fly.dev`.
+Open `https://sparkyfitness-frontend.fly.dev`.
 
 > If you rename apps, update the hostnames in `server/fly.toml`
 > (`SPARKY_FITNESS_FRONTEND_URL`, `SPARKY_FITNESS_DB_HOST`) and
@@ -73,18 +100,18 @@ Open `https://sparkyfitness-frontend-af.fly.dev`.
 ## First login
 Signups are disabled by default. To create your account:
 ```bash
-fly secrets set --app sparkyfitness-server-af SPARKY_FITNESS_DISABLE_SIGNUP=false
+fly secrets set --app sparkyfitness-server SPARKY_FITNESS_DISABLE_SIGNUP=false
 # (also set it to 'false' in server/fly.toml temporarily, or it reverts on next deploy)
 # register at the site, then re-lock:
-fly secrets set --app sparkyfitness-server-af SPARKY_FITNESS_DISABLE_SIGNUP=true
+fly secrets set --app sparkyfitness-server SPARKY_FITNESS_DISABLE_SIGNUP=true
 ```
 Optional admin: set `SPARKY_FITNESS_ADMIN_EMAIL` (secret) to your email to auto-grant admin.
 
 ## Verify
 1. `fly status` on each app — db + server up, frontend may be stopped until first hit.
-2. `fly logs --app sparkyfitness-server-af` — migrations applied, no DB connection errors.
+2. `fly logs --app sparkyfitness-server` — migrations applied, no DB connection errors.
 3. Browser loads the UI; register; log a food entry; reload → it persists.
-4. `fly ssh console --app sparkyfitness-db-af` → `psql -U sparky sparkyfitness_db -c '\dt'` shows tables.
+4. `fly ssh console --app sparkyfitness-db` → `psql -U sparky sparkyfitness_db -c '\dt'` shows tables.
 
 ## Ongoing
 ```bash
@@ -97,7 +124,7 @@ Images are pinned to `:latest`; `fly deploy` re-pulls. Pin to a digest if you wa
 
 ## Notes / gotchas
 - **flycast**: the backend has no public IP. The `fly ips allocate-v6 --private` step is required
-  or nginx can't resolve `sparkyfitness-server-af.flycast`. The proxy auto-starts the stopped server
+  or nginx can't resolve `sparkyfitness-server.flycast`. The proxy auto-starts the stopped server
   on the first request (a few seconds of cold start).
 - **`.internal` vs `.flycast`**: db uses `.internal` (postgres binds dual-stack, fine over IPv6);
   the Node server uses `.flycast` to avoid IPv4-only-bind issues over 6PN.

@@ -1,12 +1,12 @@
 # SparkyFitness — Node backend (private via flycast)
-# Mirrors the `sparkyfitness-server-af` service. Listens on 3010.
+# Mirrors the `sparkyfitness-server` service. Listens on 3010.
 # Exposed only on the private network: the [[services]] block has NO ports, so
 # there is no public listener. The frontend reaches it at
-# `sparkyfitness-server-af.flycast:3010` (flycast = Fly proxy on a private address;
+# `sparkyfitness-server.flycast:3010` (flycast = Fly proxy on a private address;
 # survives whether the Node process binds IPv4 or IPv6, and lets the machine
 # auto-stop/auto-start to save money). Allocate the flycast address once with:
-#   fly ips allocate-v6 --private --app sparkyfitness-server-af
-app = 'sparkyfitness-server-af'
+#   fly ips allocate-v6 --private --app sparkyfitness-server
+app = 'sparkyfitness-server'   # EXAMPLE — globally-unique on Fly; pick your own (see README). If renamed, also update SPARKY_FITNESS_DB_HOST / FRONTEND_URL below + SERVER_HOST in frontend/fly.toml
 primary_region = 'lax'
 
 [build]
@@ -18,14 +18,14 @@ primary_region = 'lax'
   SPARKY_FITNESS_LOG_LEVEL = 'ERROR'
 
   # --- DB connection (superuser; used for migrations + creating the app user) ---
-  SPARKY_FITNESS_DB_HOST = 'sparkyfitness-db-af.internal'
+  SPARKY_FITNESS_DB_HOST = 'sparkyfitness-db.internal'
   SPARKY_FITNESS_DB_PORT = '5432'
   SPARKY_FITNESS_DB_NAME = 'sparkyfitness_db'
   SPARKY_FITNESS_DB_USER = 'sparky'
   SPARKY_FITNESS_APP_DB_USER = 'sparkyapp'
 
   # CORS / Better Auth trusted origin — must match the public frontend URL.
-  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend-af.fly.dev'
+  SPARKY_FITNESS_FRONTEND_URL = 'https://sparkyfitness-frontend.fly.dev'
 
   # Lock down registration by default; flip to 'false' just long enough to make
   # your account, then set back to 'true' and redeploy (see README).
