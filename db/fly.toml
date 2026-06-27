@@ -1,0 +1,24 @@
+# SparkyFitness — PostgreSQL (private, always-on)
+# Mirrors the `sparkyfitness-db` service from docker-compose.prod.yml.
+# No [[services]] block => not exposed to the internet; reachable from other
+# apps in this org over 6PN at `sparkyfitness-db.internal:5432`.
+app = 'sparkyfitness-db'
+primary_region = 'lax'
+
+[build]
+  image = 'postgres:18.3-alpine'
+
+[env]
+  # Keep the data dir in a subfolder of the mounted volume (recommended for the
+  # official postgres image so initdb doesn't trip over the mount root).
+  PGDATA = '/var/lib/postgresql/data'
+  # POSTGRES_DB / POSTGRES_USER / POSTGRES_PASSWORD are set via `fly secrets`
+  # (see README) so the password never lands in git.
+
+[[mounts]]
+  source = 'sparky_pgdata'
+  destination = '/var/lib/postgresql'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '256mb'   # bump to 512mb if you see OOM under load
